@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTML + Web Components 示例</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; max-width: 900px; margin: 0 auto; }
+    section { margin-bottom: 2rem; }
+    h2 { color: #1e40af; }
+    pre { background: #f5f5f5; padding: 1rem; border-radius: 4px; min-height: 60px; }
+    .row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "solid-web-components-ui": "../../dist/solid-web-components-ui.es.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <h1>HTML (Vanilla JS) + Web Components</h1>
+
+  <section>
+    <h3>ui-button 组件（注册）</h3>
+    <div class="row">
+      <ui-button id="btn1" variant="primary" size="medium">主要按钮</ui-button>
+      <ui-button variant="secondary" size="medium">次要按钮</ui-button>
+      <ui-button variant="outline" size="small">小按钮</ui-button>
+      <ui-button variant="ghost" size="large">大按钮</ui-button>
+      <ui-button disabled>禁用按钮</ui-button>
+    </div>
+  </section>
+
+  <section>
+    <h3>ui-data-card 组件（传复杂属性）</h3>
+    <ui-data-card id="card" theme="light"></ui-data-card>
+  </section>
+
+  <section>
+    <h3>事件日志</h3>
+    <pre id="log">（暂无事件）</pre>
+  </section>
+
+  <script type="module">
+    // 1. 注册组件：导入即注册（side-effect import）
+    import 'solid-web-components-ui';
+
+    const logEl = document.getElementById('log');
+    const log = (msg) => {
+      const lines = logEl.textContent === '（暂无事件）' ? [] : logEl.textContent.split('\n');
+      lines.push(msg);
+      logEl.textContent = lines.join('\n');
+    };
+
+    // 2. 监听事件：addEventListener + CustomEvent.detail
+    const btn = document.getElementById('btn1');
+    btn.addEventListener('ui-click', (e) => {
+      log(`按钮被点击: ${e.detail.originalEvent.type}`);
+    });
+
+    // 3. 传复杂属性：直接设置 DOM property（而非 attribute）
+    const card = document.getElementById('card');
+
+    const userData = {
+      id: 1,
+      name: '张三',
+      email: 'zhangsan@example.com',
+      tags: ['管理员', '前端开发'],
+      meta: { department: '技术部', level: 'P7' },
+    };
+
+    const actions = [
+      { label: '查看详情', type: 'primary' },
+      { label: '删除', type: 'secondary' },
+    ];
+
+    card.user = userData;
+    card.actions = actions;
+
+    card.addEventListener('ui-action', (e) => {
+      log(`卡片操作: ${e.detail.type}, 用户: ${e.detail.user?.name ?? '未知'}`);
+    });
+
+    // 演示动态更新复杂属性
+    setTimeout(() => {
+      log('--- 3 秒后动态更新 user ---');
+      card.user = { ...userData, name: '张三（已更新）', tags: ['VIP用户'] };
+    }, 3000);
+  </script>
+</body>
+</html>

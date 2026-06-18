@@ -1,17 +1,19 @@
 import { Component, JSX, splitProps } from 'solid-js';
+import { customElement } from 'solid-element';
+import type { ComponentOptions } from 'component-register';
 
-interface ButtonProps {
+export interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   children?: JSX.Element;
-  onClick?: () => void;
+  onClick?: (e: MouseEvent) => void; // eslint-disable-line no-unused-vars
   [key: string]: any;
 }
 
-const Button: Component<ButtonProps> = (props) => {
-  const [local, rest] = splitProps(props, ['variant', 'size', 'disabled', 'children']);
-  
+export const Button: Component<ButtonProps> = (props) => {
+  const [local, rest] = splitProps(props, ['variant', 'size', 'disabled', 'children', 'onClick']);
+
   const variant = local.variant || 'primary';
   const size = local.size || 'medium';
   const disabled = local.disabled || false;
@@ -56,13 +58,44 @@ const Button: Component<ButtonProps> = (props) => {
       {...rest}
       class={classes}
       disabled={disabled}
+      onClick={(e) => {
+        local.onClick?.(e);
+      }}
     >
       {local.children}
     </button>
   );
 };
 
-// 创建 web component
-// defineCustomElement('solid-button', Button);
+customElement(
+  'ui-button',
+  {
+    variant: 'primary',
+    size: 'medium',
+    disabled: false,
+  },
+  (props: ButtonProps, { element }: ComponentOptions) => {
+    const handleClick = (e: MouseEvent) => {
+      (element as unknown as HTMLElement).dispatchEvent(
+        new CustomEvent('ui-click', {
+          bubbles: true,
+          composed: true,
+          detail: { originalEvent: e },
+        })
+      );
+    };
+
+    return (
+      <Button
+        variant={props.variant as ButtonProps['variant']}
+        size={props.size as ButtonProps['size']}
+        disabled={props.disabled as boolean}
+        onClick={handleClick}
+      >
+        <slot />
+      </Button>
+    );
+  }
+);
 
 export default Button;

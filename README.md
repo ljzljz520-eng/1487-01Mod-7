@@ -1,19 +1,54 @@
 # Solid Web Components UI
 
-这是一个基于 Vite + TypeScript 构建的 Web Component UI 组件库，专为 SolidJS 项目设计。编译后可发布到 NPM，在其他 SolidJS 项目中可通过 npm install 安装使用。
+这是一个基于 Vite + TypeScript + SolidJS 构建的 **真正 Web Component** UI 组件库。组件遵循 W3C Custom Elements 标准，**不绑定任何框架**，可在 React、Vue、Solid、Angular 或纯 HTML 中直接使用。
 
 ## 项目特点
 
 - ✅ 基于 Vite + TypeScript 构建
-- ✅ 支持 Web Component 标准
-- ✅ 专为 SolidJS 项目优化
+- ✅ **真正的 Web Component**（`<ui-button>`、`<ui-data-card>` 原生标签）
+- ✅ 跨框架通用：React / Vue / Solid / HTML 零额外依赖
+- ✅ 专为 SolidJS 项目优化的原生 JSX 组件导出
 - ✅ 支持一键 Docker 部署
 - ✅ 完整的测试覆盖
-- ✅ 提供详细的开发文档
+- ✅ 提供详细的开发文档和跨框架示例
 
 ## 已实现组件
 
-- **Button** - 按钮组件，支持多种变体和尺寸
+| 组件标签 | Solid 导出 | 说明 |
+|---------|-----------|------|
+| `<ui-button>` | `Button` | 按钮组件，支持 variant / size / disabled |
+| `<ui-data-card>` | `DataCard` | 数据卡片，支持传复杂对象和数组 |
+
+## Web Component 公共 API（所有框架通用）
+
+> ⚠️ 我们**不会为了适配某个框架而改变 Web Component 的公共 API**。所有框架使用的都是下面同一套 DOM 接口。
+
+### 属性（Attributes，用于简单值）
+
+| 属性 | 类型 | 默认值 | 说明 |
+|-----|------|-------|------|
+| `variant` | `'primary' \| 'secondary' \| 'outline' \| 'ghost'` | `'primary'` | 按钮变体（ui-button） |
+| `size` | `'small' \| 'medium' \| 'large'` | `'medium'` | 尺寸（ui-button） |
+| `disabled` | `boolean` | `false` | 是否禁用（ui-button） |
+| `theme` | `'light' \| 'dark'` | `'light'` | 主题（ui-data-card） |
+
+### 属性（DOM Properties，用于复杂值——对象/数组）
+
+这些值无法用 HTML attribute 传递，必须设置为 DOM 节点 property：
+
+- **`user`** `UserData`：`{ id, name, email, tags: string[], meta: Record<string, unknown> }`
+- **`actions`** `Array<{ label: string; type: 'primary' | 'secondary' }>`
+
+### 事件（Custom Events）
+
+所有事件都是 `bubbles: true, composed: true` 的 CustomEvent：
+
+| 事件名 | Detail 数据 | 触发组件 |
+|-------|------------|---------|
+| `ui-click` | `{ originalEvent: MouseEvent }` | `<ui-button>` |
+| `ui-action` | `{ type: string; user?: UserData }` | `<ui-data-card>` |
+
+> **设计原则**：所有自定义事件加 `ui-` 前缀，避免与原生事件名冲突；所有数据通过 `event.detail` 传出。
 
 ## 安装
 
@@ -78,26 +113,218 @@ function App() {
 export default App;
 ```
 
-### 作为 Web Component 使用
+## 跨框架使用指南
+
+> 所有示例代码位于 [`examples/`](file:///Users/kkcarrot/solo/1487/1487-01Mod-7/examples) 目录。每个框架的示例都展示了三件事：
+> 1. **注册组件**（一般通过 `import 'solid-web-components-ui'` side-effect import 完成）
+> 2. **监听事件**（通过 `addEventListener` 读取 `event.detail`）
+> 3. **传复杂属性**（通过设置 DOM property，而不是 HTML attribute）
+
+---
+
+### 1. React 中使用
+
+React 19 对 Web Components 有更好的支持；React 18 及以下需要注意自定义事件要用 `addEventListener` 手动绑定（`onUiClick` 写法无效）。
+
+完整示例：[examples/react/ReactWrapper.tsx](file:///Users/kkcarrot/solo/1487/1487-01Mod-7/examples/react/ReactWrapper.tsx)
+
+```tsx
+import React, { useEffect, useRef } from 'react';
+// ✅ 注册：导入即触发 customElements.define（side-effect import）
+import 'solid-web-components-ui';
+
+export default function App() {
+  const btnRef = useRef<HTMLElement>(null);
+  const cardRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const btn = btnRef.current;
+    const card = cardRef.current;
+
+    // ✅ 监听事件：addEventListener，读 event.detail
+    const onClick = (e: Event) =>
+      console.log('按钮点击', (e as CustomEvent).detail.originalEvent);
+    const onAction = (e: Event) =>
+      console.log('卡片操作', (e as CustomEvent).detail.type);
+
+    btn?.addEventListener('ui-click', onClick);
+    card?.addEventListener('ui-action', onAction);
+
+    // ✅ 传复杂属性：设置 DOM property
+    if (card) {
+      card.user = { id: 1, name: '张三', email: 'a@b.com', tags: ['管理员'] };
+      card.actions = [{ label: '查看', type: 'primary' }];
+    }
+
+    return () => {
+      btn?.removeEventListener('ui-click', onClick);
+      card?.removeEventListener('ui-action', onAction);
+    };
+  }, []);
+
+  return (
+    <>
+      {/* 简单属性直接用 attribute */}
+      <ui-button ref={btnRef} variant="primary" size="medium">
+        React 中使用
+      </ui-button>
+      <ui-data-card ref={cardRef} theme="light" />
+    </>
+  );
+}
+```
+
+> **React 关键要点**：
+> - 自定义事件（`ui-click`）**不能**写为 `onUiClick={...}`，必须用 `addEventListener`
+> - 复杂属性（对象/数组）必须在 `useEffect` 中通过 `ref.current.xxx = value` 设置
+> - 别忘了在 `useEffect` 的 cleanup 中解绑事件，避免内存泄漏
+
+---
+
+### 2. Vue 中使用
+
+Vue 对 Web Components 的支持是所有框架中最友好的：`v-bind`、`@event`、`ref` 全都可以直接用。
+
+完整示例：[examples/vue/VueWrapper.vue](file:///Users/kkcarrot/solo/1487/1487-01Mod-7/examples/vue/VueWrapper.vue)
+
+```vue
+<template>
+  <!-- ✅ 简单属性用 attribute + v-bind；✅ 事件直接 @ui-click -->
+  <ui-button variant="primary" size="medium" @ui-click="onBtnClick">
+    Vue 中使用
+  </ui-button>
+
+  <!-- ✅ 传复杂属性：在 onMounted 中通过 ref 设置 property -->
+  <ui-data-card ref="cardRef" :theme="theme" @ui-action="onCardAction" />
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+// ✅ 注册：side-effect import
+import 'solid-web-components-ui';
+
+const cardRef = ref<HTMLElement | null>(null);
+const theme = ref<'light' | 'dark'>('light');
+
+const userData = { id: 1, name: '张三', email: 'a@b.com', tags: ['管理员'] };
+const actions = [{ label: '查看', type: 'primary' }];
+
+const onBtnClick = (e: Event) =>
+  console.log('按钮点击', (e as CustomEvent).detail.originalEvent);
+const onCardAction = (e: Event) =>
+  console.log('卡片操作', (e as CustomEvent).detail.type);
+
+// ✅ 传复杂属性：DOM property
+onMounted(() => {
+  if (cardRef.value) {
+    cardRef.value.user = userData;
+    cardRef.value.actions = actions;
+  }
+});
+</script>
+```
+
+> **Vue 关键要点**：
+> - `@ui-click` 写法完美支持，不需要 `addEventListener`
+> - 如果使用 Vite + Vue，需要在 `vite.config.ts` 中告诉 Vue 编译器把 `ui-*` 当作自定义元素：
+>   ```ts
+>   export default defineConfig({
+>     plugins: [vue({ template: { compilerOptions: { isCustomElement: (t) => t.startsWith('ui-') } } })],
+>   });
+>   ```
+
+---
+
+### 3. Solid 中使用
+
+Solid 本身就是本库的原生环境。可以**二选一**：
+
+- **方式 A（推荐，Solid 内部使用）**：直接 import `Button` / `DataCard` 当普通 Solid 组件，props、children、onClick 全部自然传递
+- **方式 B（跨场景/微前端）**：用 `<ui-button>` Web Component 标签，和其他框架走同一套公共 API
+
+完整示例：[examples/solid/SolidWrapper.tsx](file:///Users/kkcarrot/solo/1487/1487-01Mod-7/examples/solid/SolidWrapper.tsx)
+
+```tsx
+import { Component, onMount, onCleanup } from 'solid-js';
+// ✅ 方式 A：原生 Solid 组件
+import { Button, DataCard } from 'solid-web-components-ui';
+// ✅ 方式 B：注册 Web Component 标签
+import 'solid-web-components-ui';
+
+const App: Component = () => {
+  let btnEl: HTMLElement | undefined;
+
+  // 方式 A：原生 Solid（传值/事件最自然）
+  const nativeWay = () => (
+    <>
+      <Button variant="primary" onClick={() => console.log('click')}>
+        原生 Solid 按钮
+      </Button>
+      <DataCard
+        user={{ id: 1, name: '张三', email: 'a@b.com' }}
+        onAction={(p) => console.log(p.type)}
+      />
+    </>
+  );
+
+  // 方式 B：Web Component（和 React/Vue/HTML 同一套 API）
+  const wcWay = () => {
+    const onClick = (e: Event) => console.log((e as CustomEvent).detail);
+    onMount(() => btnEl?.addEventListener('ui-click', onClick));
+    onCleanup(() => btnEl?.removeEventListener('ui-click', onClick));
+
+    return <ui-button ref={btnEl} variant="primary">Web Component 按钮</ui-button>;
+  };
+
+  return <>{nativeWay()}{wcWay()}</>;
+};
+```
+
+---
+
+### 4. 普通 HTML (Vanilla JS) 中使用
+
+完整示例：[examples/html/index.html](file:///Users/kkcarrot/solo/1487/1487-01Mod-7/examples/html/index.html)
 
 ```html
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web Component 示例</title>
-  <!-- 引入组件库 -->
-  <script type="module" src="path/to/solid-web-components-ui.es.js"></script>
+  <!-- 如果 dist 在本地：用 importmap 映射包名到文件路径 -->
+  <script type="importmap">
+    { "imports": { "solid-web-components-ui": "./dist/solid-web-components-ui.es.js" } }
+  </script>
+  <!-- 或者使用 CDN 发布后的真实路径 -->
 </head>
 <body>
-  <!-- 使用 Web Component -->
-  <solid-button variant="primary" size="medium">
-    Web Component 按钮
-  </solid-button>
+  <ui-button id="btn" variant="primary">原生 HTML 按钮</ui-button>
+  <ui-data-card id="card" theme="light"></ui-data-card>
+
+  <script type="module">
+    // ✅ 注册：side-effect import
+    import 'solid-web-components-ui';
+
+    // ✅ 监听事件
+    document.getElementById('btn')!
+      .addEventListener('ui-click', (e) =>
+        console.log('点击', (e as CustomEvent).detail));
+
+    // ✅ 传复杂属性：DOM property（注意不是 setAttribute）
+    const card = document.getElementById('card')!;
+    card.user = { id: 1, name: '张三', email: 'a@b.com', tags: ['管理员'] };
+    card.actions = [{ label: '查看', type: 'primary' }];
+    card.addEventListener('ui-action', (e) => console.log((e as CustomEvent).detail));
+  </script>
 </body>
 </html>
 ```
+
+> **HTML 关键要点**：
+> - 一定要用 `<script type="module">`，不能用普通 `<script>`
+> - 复杂属性**一定是 property**（`el.user = xxx`），**不是 attribute**（不能 `setAttribute('user', JSON.stringify(...))`）
+> - 事件必须用 `addEventListener`，无法在 HTML 中写 `onui-click="..."`
+
+---
 
 ## Docker 部署（详细步骤）
 
@@ -353,10 +580,16 @@ docker compose exec solid-web-components-ui npm run test
 solid-web-components-ui/
 ├── src/
 │   ├── components/         # 组件目录
-│   │   ├── Button.tsx      # 按钮组件
+│   │   ├── Button.tsx      # 按钮组件（同时导出 Solid 组件 & Web Component）
+│   │   ├── DataCard.tsx    # 数据卡片组件（演示复杂属性 & 自定义事件）
 │   │   └── __tests__/      # 测试文件目录
 │   │       └── Button.test.tsx  # 按钮组件测试
 │   └── index.ts            # 入口文件
+├── examples/               # 跨框架示例
+│   ├── react/ReactWrapper.tsx
+│   ├── vue/VueWrapper.vue
+│   ├── solid/SolidWrapper.tsx
+│   └── html/index.html
 ├── .eslintrc.cjs           # ESLint 配置
 ├── Dockerfile              # Docker 构建文件
 ├── docker-compose.yml      # Docker 部署配置

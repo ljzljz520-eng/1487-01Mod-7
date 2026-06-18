@@ -1,7 +1,11 @@
 export { default as Button } from './components/Button';
+export type { ButtonProps } from './components/Button';
 
-// 导出所有组件
+export { default as DataCard } from './components/DataCard';
+export type { DataCardProps, UserData } from './components/DataCard';
+
 export * from './components/Button';
+export * from './components/DataCard';
 
-// 导入以确保 web component 被注册
 import './components/Button';
+import './components/DataCard';
